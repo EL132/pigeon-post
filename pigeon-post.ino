@@ -8,7 +8,10 @@
 #define NUM_LEDS 60
 
 const char* ssid = "SSID";
-const char* password = "PASSWORD";
+const char* password = "PSWD";
+
+const char* postUrl = "https://pigeon-post-message-server.onrender.com/message";
+const char* getUrl  = "https://pigeon-post-message-server.onrender.com/message";
 
 CRGB leds[NUM_LEDS];
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -16,21 +19,21 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 void setup() {
   Serial.begin(115200);
 
-  // LCD setup
+  // LCD
   Wire.begin(21, 22);
   lcd.init();
   lcd.backlight();
   lcd.clear();
 
+  // LED strip starts dull yellow
+  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+  fill_solid(leds, NUM_LEDS, CRGB(180, 140, 0));
+  FastLED.show();
+
   lcd.setCursor(0, 0);
   lcd.print("Connecting...");
 
-  // LED strip setup
-  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
-  fill_solid(leds, NUM_LEDS, CRGB::Cyan);
-  FastLED.show();
-
-  // WiFi connection
+  // WiFi
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
@@ -39,37 +42,61 @@ void setup() {
   }
 
   Serial.println("\nWiFi connected!");
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("WiFi connected");
 
-  fetchJoke();
+  sendMessage();
+  delay(1000);
+  fetchMessage();
 }
 
 void loop() {
 }
 
-void fetchJoke() {
+void sendMessage() {
   HTTPClient http;
 
-  http.begin("https://api.chucknorris.io/jokes/random");
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("sending msg...");
+
+  http.begin(postUrl);
+  http.addHeader("Content-Type", "application/json");
+
+  String body = "{\"message\":\"pigeon fly away\"}";
+
+  int httpCode = http.POST(body);
+
+  Serial.print("POST code: ");
+  Serial.println(httpCode);
+
+  http.end();
+
+  // update LEDs to light blue
+  fill_solid(leds, NUM_LEDS, CRGB::Cyan);
+  FastLED.show();
+}
+
+void fetchMessage() {
+  HTTPClient http;
+
+  http.begin(getUrl);
   int httpCode = http.GET();
 
   if (httpCode > 0) {
     String payload = http.getString();
 
-    Serial.println("Joke JSON:");
+    Serial.println("Server response:");
     Serial.println(payload);
 
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print("Joke fetched!");
-  } else {
-    Serial.println("Request failed");
+    lcd.print("msg received");
 
+    lcd.setCursor(0, 1);
+    lcd.print("fly away");
+  } else {
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print("API failed");
+    lcd.print("GET failed");
   }
 
   http.end();
