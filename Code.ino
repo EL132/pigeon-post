@@ -31,9 +31,10 @@ String SpeechToText_Deepgram(String audio_filename);
 
 // --- SETTINGS ---
 const char* ssid = "EliasPhone";
-const char* password = "oOOoOOO_pswd";
+const char* password = "bet you'd like that";
 const char* postUrl = "https://pigeon-post-message-server.onrender.com/message";
 const char* getUrl  = "https://pigeon-post-message-server.onrender.com/message";
+const String myDeviceID = "Pigeon_Alpha"; // Give this specific ESP32 a unique name
 
 // --- STATE MANAGEMENT ---
 enum SystemState { RESTING, RECORDING, REVIEWING, SENDING, INCOMING };
@@ -95,18 +96,22 @@ bool checkServerForMessages() {
 
   if (httpCode == HTTP_CODE_OK) {
     String payload = http.getString();
-    StaticJsonDocument<512> doc;
+    JsonDocument doc; 
     DeserializationError error = deserializeJson(doc, payload);
 
     if (!error) {
       int secondsAgo = doc["seconds_ago"] | 999; 
-      if (secondsAgo < 15) {
-        currentTranscript = doc["message"].as<String>();
+      String senderID = doc["sender_id"] | ""; // Get the sender ID from the server
+
+      // NEW LOGIC: Only trigger if it's fresh AND not sent by me
+      if (secondsAgo < 15 && senderID != myDeviceID) {
+        currentTranscript = doc["message"] | "";
         http.end();
         return true;
       }
     }
   }
+  
   http.end();
   return false;
 }
@@ -117,7 +122,7 @@ void postMessage(String text) {
   HTTPClient http;
   http.begin(client, postUrl);
   http.addHeader("Content-Type", "application/json");
-  String body = "{\"message\":\"" + text + "\"}";
+  String body = "{\"message\":\"" + text + "\", \"id\":\"" + myDeviceID + "\"}";
   http.POST(body);
   http.end();
 }
@@ -134,7 +139,7 @@ void setup() {
   FastLED.setBrightness(80);
   
   myServo.attach(SERVO_PIN, 500, 2400);
-  myServo.write(0);
+  myServo.write(100);
 
   pinMode(REC_BUTTON, INPUT); 
   pinMode(MSG_BUTTON, INPUT_PULLUP);
@@ -222,6 +227,7 @@ void loop() {
       postMessage(currentTranscript);
       displayStatic("Message sent", "");
       delay(5000); 
+      myServo.write(100); // Ensure DOOR IS CLOSED after sending
       currentState = RESTING;
       break;
 
@@ -231,7 +237,10 @@ void loop() {
         if (lastState != INCOMING) {
           updateLEDs(CRGB::Green);
           displayStatic("MESSAGE", "INCOMING");
-          for(int i=0; i<3; i++) { myServo.write(90); delay(200); myServo.write(0); delay(200); }
+          for(int pos = 90; pos >= 10; pos--) {
+            myServo.write(pos);
+            delay(30); // Increase this number to move slower, decrease to move faster
+          }
           lastState = INCOMING;
         }
       } 
@@ -243,6 +252,7 @@ void loop() {
       }
       
       if (millis() - stateStartTime > 15000 || recPressed || sendPressed) {
+        myServo.write(100); // CLOSE DOOR
         currentState = RESTING;
       }
       break;
