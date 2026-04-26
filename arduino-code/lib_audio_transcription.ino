@@ -98,7 +98,6 @@ String SpeechToText_Deepgram( String audio_filename )
   optional_param += (STT_LANGUAGE != "") ? ("&language="+(String)STT_LANGUAGE) : ("&detect_language=true");  // see #defines  
   optional_param += "&smart_format=true";         // applies formatting (Punctuation, Paragraphs, upper/lower etc ..) 
   optional_param += "&numerals=true";             // converts numbers from written to numerical format (works with 'en' only)
-  optional_param += STT_KEYWORDS;                 // optionally too: keyword boosting on multiple custom vocabulary words
   
   client.println("POST /v1/listen" + optional_param + " HTTP/1.1"); 
   client.println("Host: api.deepgram.com");
