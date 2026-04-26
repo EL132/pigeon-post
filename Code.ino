@@ -252,7 +252,11 @@ void loop() {
       }
       
       if (millis() - stateStartTime > 15000 || recPressed || sendPressed) {
-        myServo.write(100); // CLOSE DOOR
+        // slowly close door
+        for(int pos = 10; pos <= 100; pos++) {
+            myServo.write(pos);
+            delay(30); 
+        }
         currentState = RESTING;
       }
       break;
